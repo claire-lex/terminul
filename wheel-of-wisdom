@@ -2,13 +2,13 @@
 # Lex (https://github.com/claire-lex)
 #
 # Wheel of Wisdom: Make important decisions
-# Usage: ./wheelofwisdom.sh choice1 choice2 [choice3 ...]
+# Usage: ./wheel-of-wisdom choice1 choice2 [choice3 ...]
 
 ################################################################################
 # CONSTANTS AND GLOBAL FUNCTIONS                                               #
 ################################################################################
 
-USAGE="./wheelofwisdom.sh choice1 choice2 [choice3 ...]"
+USAGE="./wheel-of-wisdom choice1 choice2 [choice3 ...]"
 ARGS=()
 
 #------------------------------------------------------------------------------#

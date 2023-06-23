@@ -1,4 +1,8 @@
 #!/bin/bash
+# Lex (https://github.com/claire-lex)
+#
+# Termoulox: Display colorful text
+# Usage: ./termoulox [-a] text to display
 
 ################################################################################
 # CONSTANTS AND GLOBAL FUNCTIONS                                               #

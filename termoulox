@@ -1,0 +1,243 @@
+#!/bin/bash
+
+################################################################################
+# CONSTANTS AND GLOBAL FUNCTIONS                                               #
+################################################################################
+
+USAGE="Usage: termoulox [options] text|mode (-h for help)"
+
+OPT_BALEC="balec"
+CMD_ASCII=figlet
+
+#------------------------------------------------------------------------------#
+# Display                                                                      #
+#------------------------------------------------------------------------------#
+
+### Format ###
+NORM=`echo -e "\033[0m"`
+# FOREGROUND
+GREY=`echo -e "\033[37m"`
+RED=`echo -e "\033[91m"`
+GREEN=`echo -e "\033[92m"`
+YELLOW=`echo -e "\033[93m"`
+BLUE=`echo -e "\033[94m"`
+PINK=`echo -e "\033[95m"`
+CYAN=`echo -e "\033[96m"`
+FORESEQ=($RED $GREY $CYAN $PINK $YELLOW $GREEN $BLUE)
+# BACKGROUND
+B_GREY=`echo -e "\033[47m"`
+B_RED=`echo -e "\033[101m"`
+B_GREEN=`echo -e "\033[102m"`
+B_YELLOW=`echo -e "\033[103m"`
+B_BLUE=`echo -e "\033[104m"`
+B_PINK=`echo -e "\033[105m"`
+B_CYAN=`echo -e "\033[106m"`
+BACKSEQ=($B_YELLOW $B_BLUE $B_RED $B_GREY $B_CYAN $B_PINK $B_GREEN)
+##############
+
+
+#------------------------------------------------------------------------------#
+# Text in terminal                                                             #
+#------------------------------------------------------------------------------#
+
+function text_center {
+    # Place cursor to center text
+    COLS=$(tput cols)
+    LINES=$(tput lines)
+    txt="$*"
+    length=${#txt}
+    line_pos=$((LINES/2-1))
+    col_pos=$((COLS/2-length/2))
+    if [[ $line_pos -lt 0 ]]; then line_pos=0; fi
+    if [[ $col_pos -lt 0 ]]; then col_pos=0; fi
+    # Set it and print. Size is measured everytime in case of resize.
+    tput cup ${line_pos} ${col_pos}  
+    echo "$*"
+}
+
+function remove_accents {
+    txt="$1"
+    for i in "é" "è" "ê"; do
+	txt=$(echo $txt | sed s/$i/"e"/g)
+    done
+    txt=$(echo $txt | sed s/"à"/"a"/g | sed s/"ç"/"c"/g | sed s/"î"/"i"/g)
+    echo $txt # To return the value (does not really echo it)
+}
+
+function ascii_center {
+    COLS=$(tput cols)
+    LINES=$(tput lines)
+    # Remove accents
+    txt=$(remove_accents "$*")
+    if [[ $CMD_ASCII == "figlet" ]]; then
+	txt=$(echo $txt | figlet -w $COLS -c)
+    fi
+    height=$(echo "$txt" | wc -l)
+    line_pos=$((LINES/2-height/2))
+    if [[ $line_pos -lt 0 ]]; then line_pos=0; fi
+    # Set it and print. Size is measured everytime in case of resize.
+    tput cup ${line_pos} 0
+    echo "$txt"
+}
+
+################################################################################
+# TERM MANAGEMENT FUNCTIONS                                                    #
+################################################################################
+
+#------------------------------------------------------------------------------#
+# Save current state for restore later                                         #
+#------------------------------------------------------------------------------#
+
+function term_save {
+    tput smcup # Save term capabilities, may not work with virtual console
+}
+
+function term_restore {
+    # Revert all setterm changes
+    echo "${NORM}"
+    setterm -cursor on
+    tput rmcup # Retore term capabilities, may not work with virtual console
+}
+
+#------------------------------------------------------------------------------#
+# Terminal modification helper functions: clean, change behavior               #
+#------------------------------------------------------------------------------#
+
+function term_prepare {
+    # Change
+    tput clear
+    setterm -cursor off
+} 
+
+function term_back_color {
+    echo "$1"
+    tput cup 0 0
+    num=$((COLS*LINES))
+    # Just fill the screen
+    for i in $(seq 1 $num); do echo -n " "; done
+    tput cup 0 0
+}
+
+function term_fore_color {
+    echo "$1"
+    tput cup 0 0
+}
+
+################################################################################
+# RUN                                                                          #
+################################################################################
+
+function help {
+    echo "$USAGE
+
+Display colorful text. Please protect your eyes.
+
+ options (to combine with a mode or a text):
+-a         Display text in ASCII art using figlet
+
+ modes:
+balec      Option from french speaker to express that you don't give a f*ck
+	   Inspiration: Mr. Yeye - On s'en bat les couilles (video clip)
+
+ other arguments:
+Any other argument will be printed as text in termoulox.
+
+Press any key to stop."
+}
+
+# If we just need to display the help :)
+if [[ $1 == "-h" || $1 == "--help" ]]; then
+    help
+    exit 0
+elif [[ $# -lt 1 ]]; then
+    # Do we have something waiting in stdin? (pipe)
+    while read -t 0.1 -r arg; do
+	ARGS+=($arg)
+    done
+    PIPE=true
+else
+    # Retrieve command line arguments
+    ARGS=($*)
+    PIPE=false
+fi
+
+if [[ $ARGS == "" ]]; then
+    help
+    exit
+fi
+
+# We need figlet to use ascii art for some options, so check if it's here
+function check_ascii {
+    res=$($CMD_ASCII "termoulox" >> /dev/null)
+    if [[ $? -ne 0 ]]; then
+	echo "Figlet is required for ASCII art mode, install it with"
+	echo "'apt-get install figlet' or 'yum install figlet' or else"
+	echo "Otherwise, you can use the other options to output as text."
+	exit
+    fi
+}
+
+# Prepare options
+ASCII_MODE=False
+
+text=""
+for arg in "${ARGS[@]}"; do
+# while [[ $# -gt 0 ]]; do
+    case $arg in
+	-a|--art)
+	    if [[ $ASCII_MODE == False ]]; then
+		ASCII_MODE=True
+		check_ascii
+	    fi
+	    ;;
+	balec)
+	    text="On s'en bat les couilles !"
+	    ;;
+	*)
+	    text=$arg # Arg not recognized: must be text so we take it all
+	    break # And then we exit the argument parsing.
+	    ;;
+    esac
+done
+
+# Save state
+term_save
+
+# Get info
+COLS=$(tput cols)
+LINES=$(tput lines)
+
+# Prepare terminal
+trap 'term_restore; exit;' SIGINT SIGTERM # Safe exit when hitting CTRC-C
+term_prepare
+
+# Rainboooooooooooooooooooow
+for i in {1..100}; do
+    ct=0
+    for back in ${BACKSEQ[@]}; do
+	term_back_color $back
+	term_fore_color ${FORESEQ[ct]}
+	if [[ $ASCII_MODE == True ]]; then
+	    ascii_center $text
+	else
+	    text_center $text
+	fi
+	# sleep 0.5
+	ct=$((ct+1))
+	if [[ $ct == ${#FORESEQ[@]} ]]; then
+	    ct=0
+	fi
+	# Used for delay between frames and keyboard capture to end termoulox
+	read -t 0.5 -n 1 input
+	if [[ $PIPE = true ]]; then # Additional delay if pipe
+	    sleep 0.5
+	fi
+	if [[ ${#input} -ne 0 ]]; then
+	    term_restore
+	    exit
+	fi
+    done
+done
+
+# Restore state
+term_restore

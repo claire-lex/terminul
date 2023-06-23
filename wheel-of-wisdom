@@ -1,0 +1,157 @@
+#!/bin/bash
+# Lex (https://github.com/claire-lex)
+#
+# Wheel of Wisdom: Make important decisions
+# Usage: ./wheelofwisdom.sh choice1 choice2 [choice3 ...]
+
+################################################################################
+# CONSTANTS AND GLOBAL FUNCTIONS                                               #
+################################################################################
+
+USAGE="./wheelofwisdom.sh choice1 choice2 [choice3 ...]"
+ARGS=()
+
+#------------------------------------------------------------------------------#
+# Display                                                                      #
+#------------------------------------------------------------------------------#
+NORM=`echo -e "\033[0m"`
+RED=`echo -e "\033[101m"`
+GREEN=`echo -e "\033[102m"`
+YELLOW=`echo -e "\033[103m"`
+BLUE=`echo -e "\033[104m"`
+PINK=`echo -e "\033[105m"`
+CYAN=`echo -e "\033[106m"`
+SEQUENCE=($YELLOW $BLUE $RED $CYAN $PINK $GREEN)
+
+function fill_with_color {
+    echo "$1"
+    up && right
+    echo "     "
+    echo "$NORM"
+    up && left
+}
+
+function clean_color {
+    up && right
+    echo "     "
+}
+
+#------------------------------------------------------------------------------#
+# Terminal capabilities and cursor movement                                    #
+#------------------------------------------------------------------------------#
+
+function up {
+ tput cuu 1 
+}
+
+function right {
+   tput cuf 3
+}
+
+function left {
+    tput cub 3
+}
+
+function term_save {
+    tput sc # Save term capabilities, may not work with virtual console
+    setterm -cursor off
+}
+
+function term_restore {
+    # Revert all setterm changes
+    setterm -cursor on
+    tput rc # Restore term capabilities, may not work with virtual console
+}
+
+################################################################################
+# START                                                                        #
+################################################################################
+
+function help {
+    echo "$USAGE
+
+Makes important decisions, so that you don't have to. Chooses randomly a value
+among the choices you specified in arguments.
+
+Stops by itself when done, but you can also stop it by pressing any key."
+}
+
+# Check arguments, if no argument, check stdin instead (pipe)
+if [[ $# -lt 1 ]]; then
+    # args=$(read -t 0.5 < /dev/stdin)
+    while read -t 0.1 -r arg; do
+	ARGS+=($arg)
+    done
+    PIPE=true
+else
+    ARGS=($*)
+    PIPE=false
+fi
+
+if [[ $ARGS == "" ]]; then
+    echo "${USAGE}"
+    exit
+fi
+
+# If we just need to display the help :)
+if [[ $1 == "-h" || $1 == "--help" ]]; then
+    help
+    exit 0
+fi
+
+# Gather arguments into a list
+echo ""
+echo "*************************** Wheel of Wisdom ***************************"
+number=0
+for arg in "${ARGS[@]}"; do
+    # Options may be added later, prepare space for it (args starting with -)
+    if [ "$arg" != -* ]; then
+	printf "* |     | %-59s *\n" "$arg"
+	number=$((number + 1))
+    fi
+done
+echo "***********************************************************************"
+echo ""
+
+#Save cursor position, then move to the first block
+term_save
+tput cuu $((number + 2))
+
+# Choose random color (from 101 to 106 code)
+rd=$((RANDOM%5 + 1))
+color=`echo -e "\033[10${rd}m"`
+# Define number of turns and initialize time between change
+turns=$((RANDOM % 50 + $number * 3))
+sleep=0.02
+multiply=$(echo "scale=10; 1.0/$turns" | bc) # Bash does not handle floats...
+
+for i in $(seq 1 $turns); do
+ # Set color
+ fill_with_color $color
+ 
+ # Delay between frames and keyboard capture
+ read -t $sleep -n 1 input
+ if [[ $PIPE = true ]]; then # Additional delay if pipe
+     sleep $sleep
+ fi
+ if [[ ${#input} -ne 0 ]]; then
+     term_restore
+     exit
+ fi
+ # The is the end, we exit without removing the color
+ if [[ $i -eq $turns ]]; then
+     term_restore
+     exit
+ fi
+
+ # Clean frame then place cursor to the next
+ clean_color
+ if [[ $((i % $number)) -eq 0 ]]; then
+    tput cuu $((number))
+ fi
+
+ # Progressively increase time between change
+ sleep=$(echo "scale=10; $sleep + $sleep*$multiply + $multiply/$i*2" | bc)
+done
+
+term_restore

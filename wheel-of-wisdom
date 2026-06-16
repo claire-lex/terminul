@@ -63,9 +63,17 @@ function term_restore {
     tput rc # Restore term capabilities, may not work with virtual console
 }
 
+function handle_sigint {
+    term_restore
+    exit
+}
+
 ################################################################################
 # START                                                                        #
 ################################################################################
+
+# Behavior for CTRL+C
+trap handle_sigint SIGINT
 
 function help {
     echo "$USAGE
@@ -84,7 +92,10 @@ if [[ $# -lt 1 ]]; then
     done
     PIPE=true
 else
-    ARGS=($*)
+    ARGS=()
+    for a in "$@"; do
+	ARGS+=("$a")
+    done
     PIPE=false
 fi
 
